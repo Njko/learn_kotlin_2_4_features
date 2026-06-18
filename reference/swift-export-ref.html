@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference — Swift Export Alpha</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    body { font-size: 15px; }
+    pre  { font-size: 0.78rem; }
+    h1   { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Swift Export — Quick Reference</h1>
+  <div class="lesson-meta">
+    <span class="tag" style="background:#e8f0ff; color:#1a3a8f;">Alpha · Kotlin 2.4</span>
+    <span><a href="../lessons/0005-swift-export-alpha.html">← Lesson 5</a></span>
+  </div>
+
+  <h3>Kotlin → Swift type map</h3>
+  <table style="width:100%; font-size:0.82rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1rem;">
+    <tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Kotlin</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Swift</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>suspend fun</code></td>
+      <td style="padding:0.3rem 0.5rem;"><code>async func</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Suspend lambda</td>
+      <td style="padding:0.3rem 0.5rem;"><code>async</code> closure</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>Flow&lt;T&gt;</code></td>
+      <td style="padding:0.3rem 0.5rem;"><code>AsyncSequence</code> via <code>.asAsyncSequence()</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Kotlin exception</td>
+      <td style="padding:0.3rem 0.5rem;">Swift <code>Error</code> (<code>try</code>)</td>
+    </tr>
+    <tr>
+      <td style="padding:0.3rem 0.5rem;">Coroutine cancellation</td>
+      <td style="padding:0.3rem 0.5rem;">Swift Task cancellation</td>
+    </tr>
+  </table>
+
+  <h3>Calling suspend from Swift</h3>
+  <pre><code><span class="comment">// Kotlin</span>
+<span class="keyword">suspend fun</span> <span class="type">fetchUser</span>(id: String): User
+
+<span class="comment">// Swift</span>
+<span class="keyword">let</span> user = <span class="keyword">try await</span> fetchUser(id: <span class="string">"u1"</span>)</code></pre>
+
+  <h3>Consuming a Flow in Swift</h3>
+  <pre><code><span class="comment">// Kotlin</span>
+<span class="keyword">fun</span> <span class="type">prices</span>(): Flow&lt;Double&gt;
+
+<span class="comment">// Swift</span>
+<span class="keyword">for try await</span> price <span class="keyword">in</span> prices().asAsyncSequence() { }</code></pre>
+
+  <h3>Swift Package dependency in Gradle</h3>
+  <pre><code>kotlin {
+    swiftPMDependencies {
+        swiftPackage(
+            url = url(<span class="string">"https://github.com/…"</span>),
+            version = from(<span class="string">"1.0.0"</span>),
+            products = listOf(product(<span class="string">"ProductName"</span>))
+        )
+    }
+}</code></pre>
+
+  <h3>Adoption guidance</h3>
+  <ul style="font-family:var(--font-ui); font-size:0.85rem; line-height:1.9;">
+    <li>✓ Internal KMP apps: safe to adopt now</li>
+    <li>⚠ Public SDKs: pin Kotlin version — API may shift before Stable</li>
+    <li>No compiler flag needed — on by default in 2.4</li>
+  </ul>
+</div>
+</body>
+</html>
