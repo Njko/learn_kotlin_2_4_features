@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 6 — @IntroducedAt</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <h1>@IntroducedAt</h1>
+  <div class="lesson-meta">
+    <span>Lesson 6 of ?</span>
+    <span class="tag" style="background:#fff8e8; color:#b07000;">Experimental in 2.4</span>
+    <span>~15 min</span>
+    <span><a href="../reference/introduced-at-ref.html">Reference sheet →</a></span>
+  </div>
+
+  <!-- ── The problem ────────────────────────────────── -->
+  <h2>The binary compatibility trap</h2>
+
+  <p>You publish a library. Version 1.0 ships this function:</p>
+
+  <pre><code><span class="comment">// Library v1.0</span>
+<span class="keyword">fun</span> <span class="type">Button</span>(label: String, onClick: () -> Unit) { <span class="comment">/* … */</span> }</code></pre>
+
+  <p>A downstream app compiles against v1.0. Its bytecode contains a call to the exact JVM method signature <code>Button(String, Function0)</code>.</p>
+
+  <p>You add a new optional parameter in v1.1:</p>
+
+  <pre><code><span class="comment">// Library v1.1 — naive</span>
+<span class="keyword">fun</span> <span class="type">Button</span>(label: String, color: Color = DefaultColor, onClick: () -> Unit) { <span class="comment">/* … */</span> }</code></pre>
+
+  <p>From a <em>source</em> perspective this is backwards-compatible — old callers can recompile and work. But the compiled app from v1.0 is looking for <code>Button(String, Function0)</code> at runtime. That signature is <em>gone</em>. The result is a <code>NoSuchMethodError</code> at runtime — a crash that source compatibility would never catch.</p>
+
+  <p>This is <strong>binary incompatibility</strong>: the compiled contract changed even though the source contract didn't.</p>
+
+  <!-- ── Old solutions ──────────────────────────────── -->
+  <h2>The old solutions and their cost</h2>
+
+  <h3>Option 1: Manual hidden overloads</h3>
+
+  <p>Write the old signature yourself, mark it deprecated at the <code>HIDDEN</code> level so it's invisible to source but present in bytecode:</p>
+
+  <pre><code><span class="comment">// Keep old signature alive for pre-compiled callers</span>
+<span class="keyword">@Deprecated</span>(<span class="string">"Use Button with color"</span>, level = DeprecationLevel.HIDDEN)
+<span class="keyword">fun</span> <span class="type">Button</span>(label: String, onClick: () -> Unit) =
+    Button(label, DefaultColor, onClick)
+
+<span class="keyword">fun</span> <span class="type">Button</span>(label: String, color: Color = DefaultColor, onClick: () -> Unit) { <span class="comment">/* … */</span> }</code></pre>
+
+  <p>This works, but you maintain it by hand. Add a third parameter in v1.2 and you need another hidden overload — and another, and another. The boilerplate compounds with each release.</p>
+
+  <h3>Option 2: <code>@JvmOverloads</code></h3>
+
+  <p><code>@JvmOverloads</code> generates overloads automatically, but for <em>every combination</em> of default parameters, whether or not those combinations represent real historical API states. A function with five defaults gets 32 overloads — most of which serve no compatibility purpose.</p>
+
+  <!-- ── @IntroducedAt ───────────────────────────────── -->
+  <h2><code>@IntroducedAt</code>: version-aware overload generation</h2>
+
+  <p>Mark each new parameter with the version it was introduced in. The compiler generates exactly the hidden overloads that match your API history — one per version boundary, no more:</p>
+
+  <pre><code><span class="keyword">@OptIn</span>(ExperimentalVersionOverloading::<span class="keyword">class</span>)
+<span class="keyword">fun</span> <span class="type">Button</span>(
+    label: String = <span class="string">""</span>,
+    color: Color = DefaultColor,
+    <span class="annot">@IntroducedAt(<span class="string">"1.1"</span>)</span> borderColor: Color  = DefaultBorderColor,
+    <span class="annot">@IntroducedAt(<span class="string">"1.2"</span>)</span> borderStyle: Style  = DefaultBorderStyle,
+    <span class="annot">@IntroducedAt(<span class="string">"1.2"</span>)</span> borderWidth: Int    = 1,
+    onClick: () -> Unit
+) { <span class="comment">/* … */</span> }</code></pre>
+
+  <p>The compiler reads this history and generates two hidden overloads automatically:</p>
+
+  <pre><code><span class="comment">// Generated — invisible to source callers, present in bytecode</span>
+
+<span class="comment">// For callers compiled against v1.0 (no border params at all)</span>
+<span class="keyword">fun</span> <span class="type">Button</span>(label: String, color: Color, onClick: () -> Unit) =
+    Button(label, color, DefaultBorderColor, DefaultBorderStyle, 1, onClick)
+
+<span class="comment">// For callers compiled against v1.1 (borderColor existed, others didn't)</span>
+<span class="keyword">fun</span> <span class="type">Button</span>(label: String, color: Color, borderColor: Color, onClick: () -> Unit) =
+    Button(label, color, borderColor, DefaultBorderStyle, 1, onClick)</code></pre>
+
+  <p>You write one function. The compiler maintains the history.</p>
+
+  <!-- ── The version model ──────────────────────────── -->
+  <h2>The version-boundary model</h2>
+
+  <p>Each distinct version string in your annotations defines one historical API shape. Parameters sharing a version were introduced together; the compiler treats them as a single change:</p>
+
+  <table style="width:100%; font-size:0.85rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1.2rem;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Callers compiled against…</th>
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Overload they receive</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">v1.0 (original)</td>
+        <td style="padding:0.4rem 0.6rem;"><code>Button(label, color, onClick)</code></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">v1.1</td>
+        <td style="padding:0.4rem 0.6rem;"><code>Button(label, color, borderColor, onClick)</code></td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem 0.6rem;">v1.2+ (current)</td>
+        <td style="padding:0.4rem 0.6rem;"><code>Button(label, color, borderColor, borderStyle, borderWidth, onClick)</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── vs @JvmOverloads ───────────────────────────── -->
+  <h2><code>@IntroducedAt</code> vs <code>@JvmOverloads</code></h2>
+
+  <table style="width:100%; font-size:0.85rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1.2rem;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left; padding:0.4rem 0.6rem;"></th>
+        <th style="text-align:left; padding:0.4rem 0.6rem;"><code>@JvmOverloads</code></th>
+        <th style="text-align:left; padding:0.4rem 0.6rem;"><code>@IntroducedAt</code></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">Overloads generated</td>
+        <td style="padding:0.4rem 0.6rem;">One per trailing default (combinatorial)</td>
+        <td style="padding:0.4rem 0.6rem;">One per version boundary (historical)</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">Visibility</td>
+        <td style="padding:0.4rem 0.6rem;">Public (visible to source callers)</td>
+        <td style="padding:0.4rem 0.6rem;">Hidden (bytecode only)</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">Primary use</td>
+        <td style="padding:0.4rem 0.6rem;">Java interop convenience</td>
+        <td style="padding:0.4rem 0.6rem;">Binary compatibility across releases</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem 0.6rem;">Can use together?</td>
+        <td colspan="2" style="padding:0.4rem 0.6rem;">⚠ Compiler warns — overloads may conflict. <code>@IntroducedAt</code> takes precedence if you suppress the warning.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── Who needs this ─────────────────────────────── -->
+  <h2>Who actually needs this</h2>
+
+  <p>This annotation targets <strong>library authors</strong> — anyone distributing a compiled artifact that others link against without recompiling. If you control both sides of the dependency (e.g. a monorepo where everything recompiles together), binary compatibility doesn't bite you and you don't need this.</p>
+
+  <p>If you maintain an SDK, a design system library, or any published API where consumers pin versions: this replaces a tedious manual process.</p>
+
+  <div class="callout experimental">
+    <strong>Experimental — requires opt-in</strong>
+    Annotate each function (or the file) with <code>@OptIn(ExperimentalVersionOverloading::class)</code>. The design may still evolve.
+  </div>
+
+  <!-- ── Quiz ───────────────────────────────────────── -->
+  <div class="quiz">
+    <h2>Check your understanding</h2>
+
+    <div class="question">
+      <p>1. A library ships <code>fun greet(name: String)</code>. v2.0 adds <code>fun greet(name: String, tone: Tone = Formal)</code>. A caller compiled against v1.0 runs against v2.0. What happens without a compatibility overload?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="Source compatibility and binary compatibility are different things. The old compiled bytecode calls greet(String) — a signature that no longer exists in v2.0's bytecode.">
+          It works — Kotlin default parameters are source-compatible
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. The compiled caller holds a reference to greet(String). That JVM method signature was replaced by greet(String, Tone) in v2.0. At runtime the JVM cannot resolve it — NoSuchMethodError.">
+          <code>NoSuchMethodError</code> at runtime — the old signature is gone
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="The JVM doesn't silently use defaults for missing parameters. It looks up the exact method signature and throws if it can't find it.">
+          The JVM silently uses the default value for <code>tone</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="Compile-time errors only happen when you recompile against a breaking API. Pre-compiled bytecode fails at runtime, not at compile time.">
+          Compile error when the caller's project is built
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>2. A function has 4 parameters with <code>@IntroducedAt</code> spread across 3 distinct version strings. How many hidden overloads does the compiler generate?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="That's how @JvmOverloads works — one overload per trailing default. @IntroducedAt generates one per version boundary, not one per parameter.">
+          4 — one per annotated parameter
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="The current version doesn't need its own hidden overload — it's the actual function. The hidden overloads represent the API states before each version boundary.">
+          3 — one per version string including the current version
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. Each version string marks a boundary where the API changed. The compiler generates one hidden overload per historical state — that's one fewer than the number of distinct versions, because the current version is the real function.">
+          2 — one per historical API state before the current version
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="16 would be all combinations — that's the @JvmOverloads model. @IntroducedAt generates only the historically meaningful overloads.">
+          16 — all combinations of 4 default parameters
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>3. <code>@IntroducedAt</code> is relevant to you if…</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="Binary compatibility matters when callers compile against your library separately. In a monorepo, everything recompiles together — binary compatibility isn't an issue.">
+          You work in a monorepo where all modules recompile together
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. Distributed artifacts are consumed pre-compiled. Adding parameters without keeping old signatures breaks callers who haven't recompiled — exactly what @IntroducedAt prevents.">
+          You publish compiled library artifacts others link against
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="@IntroducedAt is a JVM/compiler feature for binary compatibility. It has no connection to Swift Export or KMP interop.">
+          You export Kotlin code to Swift via Swift Export
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="@IntroducedAt generates overloads for binary compatibility, not for Java interop readability. @JvmOverloads is the tool for making Kotlin default params callable from Java.">
+          You need Java callers to use Kotlin default parameters
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="quiz-score"></div>
+  </div>
+
+  <!-- ── Primary source ─────────────────────────────── -->
+  <h2>Go deeper</h2>
+
+  <p><strong>Primary source:</strong> <a href="https://kotlinlang.org/docs/whatsnew24.html#introduced-at-annotation" target="_blank">What's new in Kotlin 2.4 — @IntroducedAt ↗</a>.</p>
+
+  <p>For the broader binary compatibility problem in Kotlin libraries, the <a href="https://github.com/Kotlin/binary-compatibility-validator" target="_blank">Binary Compatibility Validator tool ↗</a> is the standard way to catch API surface changes before they ship.</p>
+
+  <div class="ask-prompt">
+    💬 <strong>Ask your teacher anything.</strong> Wondering how this compares to <code>@JvmOverloads</code> in detail, or how to handle binary compatibility in multiplatform libraries? Just ask.
+  </div>
+
+  <!-- ── Navigation ─────────────────────────────────── -->
+  <div class="nav">
+    <a href="0005-swift-export-alpha.html">← Lesson 5: Swift Export Alpha</a>
+    <span style="margin-left:auto; color:var(--muted); font-size:0.8rem; align-self:center;">Course complete — all 2.4 concepts covered ✓</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

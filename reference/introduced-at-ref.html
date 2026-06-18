@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference — @IntroducedAt</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    body { font-size: 15px; }
+    pre  { font-size: 0.78rem; }
+    h1   { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>@IntroducedAt — Quick Reference</h1>
+  <div class="lesson-meta">
+    <span class="tag" style="background:#fff8e8; color:#b07000;">Experimental · Kotlin 2.4</span>
+    <span><a href="../lessons/0006-introduced-at.html">← Lesson 6</a></span>
+  </div>
+
+  <h3>Opt-in</h3>
+  <pre><code><span class="keyword">@OptIn</span>(ExperimentalVersionOverloading::<span class="keyword">class</span>)</code></pre>
+
+  <h3>Syntax</h3>
+  <pre><code><span class="keyword">@OptIn</span>(ExperimentalVersionOverloading::<span class="keyword">class</span>)
+<span class="keyword">fun</span> <span class="type">MyFun</span>(
+    existing: Type = default,
+    <span class="annot">@IntroducedAt(<span class="string">"1.1"</span>)</span> newParam: Type = default,
+    <span class="annot">@IntroducedAt(<span class="string">"1.2"</span>)</span> anotherParam: Type = default,
+) { }</code></pre>
+
+  <h3>What the compiler generates</h3>
+  <table style="width:100%; font-size:0.82rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1rem;">
+    <tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Callers compiled against</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Hidden overload kept</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Before v1.1</td>
+      <td style="padding:0.3rem 0.5rem;"><code>MyFun(existing)</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">v1.1</td>
+      <td style="padding:0.3rem 0.5rem;"><code>MyFun(existing, newParam)</code></td>
+    </tr>
+    <tr>
+      <td style="padding:0.3rem 0.5rem;">v1.2+ (current)</td>
+      <td style="padding:0.3rem 0.5rem;">The real function — no hidden overload</td>
+    </tr>
+  </table>
+
+  <h3>vs @JvmOverloads</h3>
+  <table style="width:100%; font-size:0.82rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1rem;">
+    <tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:0.3rem 0.5rem;"></th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;"><code>@JvmOverloads</code></th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;"><code>@IntroducedAt</code></th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Overloads</td>
+      <td style="padding:0.3rem 0.5rem;">All trailing-default combos</td>
+      <td style="padding:0.3rem 0.5rem;">One per version boundary</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Visible to source?</td>
+      <td style="padding:0.3rem 0.5rem;">Yes (public)</td>
+      <td style="padding:0.3rem 0.5rem;">No (bytecode only)</td>
+    </tr>
+    <tr>
+      <td style="padding:0.3rem 0.5rem;">Primary goal</td>
+      <td style="padding:0.3rem 0.5rem;">Java interop</td>
+      <td style="padding:0.3rem 0.5rem;">Binary compatibility</td>
+    </tr>
+  </table>
+
+  <h3>Use when</h3>
+  <ul style="font-family:var(--font-ui); font-size:0.85rem; line-height:1.9;">
+    <li>You publish a compiled library artifact</li>
+    <li>You're adding optional parameters to an existing public API</li>
+    <li>You need pre-compiled callers to keep working without recompiling</li>
+  </ul>
+</div>
+</body>
+</html>
