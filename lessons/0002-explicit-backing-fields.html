@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 2 — Explicit Backing Fields</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <h1>Explicit Backing Fields</h1>
+  <div class="lesson-meta">
+    <span>Lesson 2 of ?</span>
+    <span class="tag">Stable in 2.4</span>
+    <span>~12 min</span>
+    <span><a href="../reference/explicit-backing-fields-ref.html">Reference sheet →</a></span>
+  </div>
+
+  <!-- ── The old pattern ────────────────────────────── -->
+  <h2>The pattern you've seen a thousand times</h2>
+
+  <p>You want a property that is mutable <em>inside</em> the class but read-only to the outside world. The idiomatic Kotlin solution before 2.4 was the <strong>backing property</strong>:</p>
+
+  <pre><code><span class="keyword">class</span> <span class="type">EventBus</span> {
+    <span class="keyword">private val</span> _subscribers = mutableListOf&lt;Subscriber&gt;()
+    <span class="keyword">val</span> subscribers: List&lt;Subscriber&gt; <span class="keyword">get</span>() = _subscribers
+
+    <span class="keyword">fun</span> <span class="type">subscribe</span>(s: Subscriber) { _subscribers.add(s) }
+}</code></pre>
+
+  <p>This works, but it has friction: two declarations for one concept, the <code>_underscore</code> convention as a signal to readers, and a getter that allocates nothing but still has to be written. It also exposes an implementation detail — the "real" list — as a named symbol that can slip into autocomplete.</p>
+
+  <!-- ── The new syntax ──────────────────────────────── -->
+  <h2>The explicit backing field</h2>
+
+  <p>Kotlin 2.4 lets you declare the backing storage <em>as part of the property</em>, on the next line with the <code>field</code> keyword:</p>
+
+  <pre><code><span class="keyword">class</span> <span class="type">EventBus</span> {
+    <span class="keyword">val</span> subscribers: List&lt;Subscriber&gt;
+    <span class="keyword">field</span> = mutableListOf&lt;Subscriber&gt;()  <span class="comment">// type inferred: MutableList&lt;Subscriber&gt;</span>
+
+    <span class="keyword">fun</span> <span class="type">subscribe</span>(s: Subscriber) { subscribers.add(s) }  <span class="comment">// still mutable inside</span>
+}</code></pre>
+
+  <p>One concept, one declaration. Outside the class, <code>subscribers</code> is a <code>List</code> — the mutable operations simply aren't available. Inside the class the compiler knows the real type and gives you full <code>MutableList</code> access with no cast.</p>
+
+  <div class="callout stable">
+    <strong>Stable in Kotlin 2.4</strong>
+    No compiler flag needed. IDE support (no red squiggles in IntelliJ IDEA) arrives in IDEA 2026.1.4.
+  </div>
+
+  <!-- ── Explicit type annotation ───────────────────── -->
+  <h2>Annotating the field type explicitly</h2>
+
+  <p>When the inferred type is ambiguous, or you want to be clear about the storage type, name it after <code>field</code>:</p>
+
+  <pre><code><span class="keyword">class</span> <span class="type">ShoppingCart</span> {
+    <span class="keyword">val</span> items: List&lt;String&gt;
+    <span class="keyword">field</span>: MutableList&lt;String&gt; = mutableListOf()
+
+    <span class="keyword">fun</span> <span class="type">add</span>(item: String)    { items.add(item) }
+    <span class="keyword">fun</span> <span class="type">remove</span>(item: String) { items.remove(item) }
+}</code></pre>
+
+  <!-- ── The rule ────────────────────────────────────── -->
+  <h2>The one rule: field type must be a subtype</h2>
+
+  <p>The backing field type must be a subtype of the declared property type. That's what makes the internal smart-cast safe — the compiler knows <code>MutableList</code> is a <code>List</code>, so it can expose one face to the outside and another inside.</p>
+
+  <pre><code><span class="comment">// ✓  MutableList is a subtype of List</span>
+<span class="keyword">val</span> items: List&lt;String&gt;
+<span class="keyword">field</span> = mutableListOf&lt;String&gt;()
+
+<span class="comment">// ✓  MutableStateFlow is a subtype of StateFlow</span>
+<span class="keyword">val</span> count: StateFlow&lt;Int&gt;
+<span class="keyword">field</span> = MutableStateFlow(0)
+
+<span class="comment">// ✗  Int is not a subtype of String — won't compile</span>
+<span class="keyword">val</span> label: String
+<span class="keyword">field</span> = 42</code></pre>
+
+  <!-- ── Constraints ─────────────────────────────────── -->
+  <h2>When you can't use it</h2>
+
+  <p>Explicit backing fields are intentionally limited. The property must be:</p>
+
+  <ul style="font-family: var(--font-ui); font-size: 0.9rem; line-height: 1.9;">
+    <li><strong><code>val</code></strong> — not <code>var</code></li>
+    <li><strong>No custom getter</strong> — the whole point is that the field <em>is</em> the getter</li>
+    <li><strong>Not <code>open</code></strong> — can't be overridden in a subclass</li>
+    <li><strong>Not delegated</strong> — no <code>by lazy { }</code>, no <code>by viewModels()</code></li>
+    <li><strong>Not a compile-time constant</strong> — no <code>const</code></li>
+  </ul>
+
+  <p>If any of these apply, the old backing-property pattern is still your tool.</p>
+
+  <!-- ── Real-world pattern: StateFlow ──────────────── -->
+  <h2>Real-world pattern: ViewModel with StateFlow</h2>
+
+  <p>The most immediate use in Android/KMP code: replacing the classic <code>_state</code>/<code>state</code> pair in a ViewModel.</p>
+
+  <pre><code><span class="comment">// Before 2.4</span>
+<span class="keyword">class</span> <span class="type">CounterViewModel</span> : ViewModel() {
+    <span class="keyword">private val</span> _count = MutableStateFlow(0)
+    <span class="keyword">val</span> count: StateFlow&lt;Int&gt; = _count.asStateFlow()
+
+    <span class="keyword">fun</span> <span class="type">increment</span>() { _count.value++ }
+}
+
+<span class="comment">// Kotlin 2.4</span>
+<span class="keyword">class</span> <span class="type">CounterViewModel</span> : ViewModel() {
+    <span class="keyword">val</span> count: StateFlow&lt;Int&gt;
+    <span class="keyword">field</span> = MutableStateFlow(0)
+
+    <span class="keyword">fun</span> <span class="type">increment</span>() { count.value++ }  <span class="comment">// count is MutableStateFlow inside</span>
+}</code></pre>
+
+  <p>The <code>_count</code> symbol disappears from the class entirely. No underscore, no <code>.asStateFlow()</code> call, no second declaration.</p>
+
+  <!-- ── Comparison ──────────────────────────────────── -->
+  <h2>Comparison with implicit backing fields</h2>
+
+  <p>Kotlin has always had <em>implicit</em> backing fields, accessed via the <code>field</code> keyword inside custom accessors:</p>
+
+  <pre><code><span class="keyword">var</span> name: String = <span class="string">""</span>
+    <span class="keyword">set</span>(value) {
+        <span class="keyword">field</span> = value.trim()  <span class="comment">// `field` here is the implicit backing field</span>
+    }</code></pre>
+
+  <p>That's a different use of the same word. Explicit backing fields are a declaration at the property level — they replace the need for a separate private property. Implicit backing fields are an accessor-level escape hatch. Both remain valid; they solve different problems.</p>
+
+  <!-- ── Quiz ───────────────────────────────────────── -->
+  <div class="quiz">
+    <h2>Check your understanding</h2>
+
+    <div class="question">
+      <p>1. You want to expose a <code>StateFlow&lt;Int&gt;</code> publicly but keep a <code>MutableStateFlow&lt;Int&gt;</code> internally. Which approach can you use in Kotlin 2.4?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="The underscore pattern still works, but it's the old way — two declarations, two symbols. Explicit backing fields replace this.">
+          Declare <code>private val _count = MutableStateFlow(0)</code> and expose it as a <code>val</code>
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. `val count: StateFlow&lt;Int&gt;` with `field = MutableStateFlow(0)` on the next line — one concept, one declaration.">
+          Declare <code>val count: StateFlow&lt;Int&gt;</code> with <code>field = MutableStateFlow(0)</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="There's no such `@Backing` annotation in Kotlin.">
+          Annotate the property with <code>@Backing(MutableStateFlow::class)</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="A `var` with a private setter exposes both types as the same type — you can't widen to StateFlow this way.">
+          Declare <code>var count: StateFlow&lt;Int&gt; private set</code>
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>2. Which property declaration is <strong>not</strong> eligible for an explicit backing field?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="A plain `val` with no getter, not open, not delegated — this is exactly what explicit backing fields support.">
+          <code>val items: List&lt;String&gt;</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="A private val is still eligible — the visibility of the property doesn't block it; it's the backing field that is always private.">
+          <code>private val items: List&lt;String&gt;</code>
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. `open` properties cannot have explicit backing fields — they could be overridden in a subclass, which would break the internal smart-cast guarantee.">
+          <code>open val items: List&lt;String&gt;</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="A constructor property (`val` in the parameter list) isn't the target here, but a plain class-body `val` definitely is eligible.">
+          <code>val items: List&lt;String&gt;</code> declared in the class body
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>3. Inside the class, what type does the compiler see for <code>items</code> in this declaration?<br><code style="font-size:0.83em;">val items: List&lt;String&gt;<br>field = mutableListOf&lt;String&gt;()</code></p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="Outside the class, yes — callers see List. But inside, the compiler smart-casts to the real type.">
+          <code>List&lt;String&gt;</code> — the declared type
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. Inside the class the compiler uses the backing field's concrete type — MutableList — so .add(), .remove() etc. are available without a cast.">
+          <code>MutableList&lt;String&gt;</code> — the field's concrete type
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="There's no explicit cast required. The compiler infers the smart-cast automatically from the field declaration.">
+          You must cast manually with <code>items as MutableList</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="There's no such combined type. The compiler simply smart-casts to the field type inside the class.">
+          Both — a union type <code>List &amp; MutableList</code>
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="quiz-score"></div>
+  </div>
+
+  <!-- ── Primary source ─────────────────────────────── -->
+  <h2>Go deeper</h2>
+
+  <p><strong>Primary source:</strong> <a href="https://kotlinlang.org/docs/properties.html#explicit-backing-fields" target="_blank">Kotlin Docs — Properties: Explicit Backing Fields ↗</a>. The full spec including the formal rule on subtype requirements and visibility.</p>
+
+  <p>For the design rationale — why this beats the underscore pattern, and tradeoffs considered — read the <a href="https://github.com/Kotlin/KEEP/blob/master/proposals/explicit-backing-fields.md" target="_blank">KEEP proposal ↗</a>.</p>
+
+  <div class="ask-prompt">
+    💬 <strong>Ask your teacher anything.</strong> Wondering how this interacts with delegation or interfaces? Want to see how it plays with Jetpack Compose's <code>MutableState</code>? Ask in chat.
+  </div>
+
+  <!-- ── Navigation ─────────────────────────────────── -->
+  <div class="nav">
+    <a href="0001-context-parameters.html">← Lesson 1: Context Parameters</a>
+    <span style="margin-left:auto; color:var(--muted); font-size:0.8rem; align-self:center;">Up next: Collection Literals →</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

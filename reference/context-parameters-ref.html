@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference — Context Parameters</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    body { font-size: 15px; }
+    pre  { font-size: 0.78rem; }
+    h1   { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Context Parameters — Quick Reference</h1>
+  <div class="lesson-meta">
+    <span class="tag">Stable · Kotlin 2.4</span>
+    <span><a href="../lessons/0001-context-parameters.html">← Lesson 1</a></span>
+  </div>
+
+  <h3>Declaration</h3>
+  <pre><code><span class="annot">context</span>(name: Type)
+<span class="keyword">fun</span> <span class="type">myFunction</span>(arg: Arg): Result { <span class="comment">/* name is in scope */</span> }</code></pre>
+
+  <h3>Multiple contexts</h3>
+  <pre><code><span class="annot">context</span>(a: TypeA, b: TypeB)
+<span class="keyword">fun</span> <span class="type">myFunction</span>() { <span class="comment">/* both a and b in scope */</span> }</code></pre>
+
+  <h3>On a class</h3>
+  <pre><code><span class="annot">context</span>(scope: CoroutineScope)
+<span class="keyword">class</span> <span class="type">MyClass</span> { <span class="comment">/* scope available in all members */</span> }</code></pre>
+
+  <h3>Providing context at call site</h3>
+  <pre><code><span class="keyword">with</span>(myLogger) {
+    processOrder(order)   <span class="comment">// Logger is now in scope</span>
+}
+
+<span class="comment">// Or inside another context(logger: Logger) fun</span></code></pre>
+
+  <h3>Explicit context argument <span style="font-size:0.8em; color:var(--muted);">(experimental)</span></h3>
+  <pre><code><span class="comment">// Two overloads differ only by context type → disambiguate:</span>
+sendNotification(<span class="annot">emailSender</span> = myEmailSender)</code></pre>
+
+  <h3>vs. Extension functions</h3>
+  <table style="width:100%; font-size:0.82rem; font-family:var(--font-ui); border-collapse:collapse;">
+    <tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Use extension when…</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Use context when…</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Function <em>belongs to</em> the type</td>
+      <td style="padding:0.3rem 0.5rem;">Type is an <em>ambient dependency</em></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Single context makes sense</td>
+      <td style="padding:0.3rem 0.5rem;">Multiple contexts needed</td>
+    </tr>
+    <tr>
+      <td style="padding:0.3rem 0.5rem;">You own the type's API surface</td>
+      <td style="padding:0.3rem 0.5rem;">Adding to the type would pollute it</td>
+    </tr>
+  </table>
+
+  <h3>Common use cases</h3>
+  <ul style="font-family:var(--font-ui); font-size:0.88rem;">
+    <li>Logging / tracing (Logger, Span)</li>
+    <li>Transaction / session scope</li>
+    <li>Coroutine scope injection</li>
+    <li>DSL builders with implicit configuration</li>
+    <li>Type-class patterns (capability evidence)</li>
+  </ul>
+</div>
+</body>
+</html>

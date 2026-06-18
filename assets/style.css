@@ -1,0 +1,229 @@
+/* Kotlin 2.4 Learning Workspace — shared stylesheet */
+
+:root {
+  --ink: #1a1a2e;
+  --muted: #5a5a7a;
+  --accent: #7f52ff; /* Kotlin purple */
+  --accent-light: #ede8ff;
+  --green: #2d9e6b;
+  --red: #c0392b;
+  --code-bg: #f4f2fb;
+  --border: #dcd8f0;
+  --max-width: 680px;
+  --font-body: 'Georgia', 'Times New Roman', serif;
+  --font-code: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-ui: system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--ink);
+  background: #fafaf8;
+  margin: 0;
+  padding: 2rem 1rem 6rem;
+}
+
+.page {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+/* ── Typography ────────────────────────────────────── */
+
+h1 {
+  font-family: var(--font-ui);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem;
+  color: var(--ink);
+}
+
+.lesson-meta {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 2.5rem;
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+
+.lesson-meta .tag {
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+h2 {
+  font-family: var(--font-ui);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 2.5rem 0 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--border);
+}
+
+h3 {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 1.8rem 0 0.4rem;
+}
+
+p { margin: 0 0 1rem; }
+
+a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+
+/* ── Code ──────────────────────────────────────────── */
+
+code {
+  font-family: var(--font-code);
+  font-size: 0.82em;
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  color: #4a2eaa;
+}
+
+pre {
+  background: var(--code-bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  margin: 0 0 1.2rem;
+  font-family: var(--font-code);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: var(--ink);
+}
+
+.comment { color: #7a7aaa; font-style: italic; }
+.keyword { color: #7f52ff; font-weight: 600; }
+.type    { color: #2d6e9e; }
+.string  { color: #2d9e6b; }
+.annot   { color: #b35c00; }
+
+/* ── Callouts ──────────────────────────────────────── */
+
+.callout {
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  margin: 1.2rem 0;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.callout.stable  { background: #e8f8f0; border-left: 3px solid var(--green); }
+.callout.experimental { background: #fff8e8; border-left: 3px solid #e0a020; }
+.callout.note    { background: var(--accent-light); border-left: 3px solid var(--accent); }
+.callout.warning { background: #fdecea; border-left: 3px solid var(--red); }
+
+.callout strong { display: block; margin-bottom: 0.2rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Quiz ──────────────────────────────────────────── */
+
+.quiz {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.4rem 1.4rem 1.2rem;
+  margin: 2rem 0;
+  background: #fff;
+  font-family: var(--font-ui);
+}
+
+.quiz h2 { border: none; margin-top: 0; }
+
+.question { margin-bottom: 1.6rem; }
+.question p { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.7rem; }
+
+.options { display: grid; gap: 0.5rem; }
+
+.option {
+  display: block;
+  padding: 0.55rem 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fff;
+  text-align: left;
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+
+.option:hover { border-color: var(--accent); background: var(--accent-light); }
+.option.correct   { border-color: var(--green); background: #e8f8f0; color: #1a5c3a; }
+.option.incorrect { border-color: var(--red); background: #fdecea; color: var(--red); }
+.option:disabled  { cursor: default; }
+
+.feedback {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  min-height: 1.2em;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.quiz-score {
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: none;
+  margin-top: 0.5rem;
+}
+
+/* ── Navigation ────────────────────────────────────── */
+
+.nav {
+  display: flex;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--ink);
+  transition: border-color 0.15s;
+}
+.nav a:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Ask prompt ────────────────────────────────────── */
+.ask-prompt {
+  margin-top: 2.5rem;
+  padding: 1rem 1.2rem;
+  background: var(--accent-light);
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  color: #4a2eaa;
+}

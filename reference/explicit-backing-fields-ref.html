@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference — Explicit Backing Fields</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    body { font-size: 15px; }
+    pre  { font-size: 0.78rem; }
+    h1   { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Explicit Backing Fields — Quick Reference</h1>
+  <div class="lesson-meta">
+    <span class="tag">Stable · Kotlin 2.4</span>
+    <span><a href="../lessons/0002-explicit-backing-fields.html">← Lesson 2</a></span>
+  </div>
+
+  <h3>Syntax</h3>
+  <pre><code><span class="keyword">val</span> propertyName: PublicType
+<span class="keyword">field</span> = concreteSubtypeValue()          <span class="comment">// type inferred</span>
+
+<span class="keyword">val</span> propertyName: PublicType
+<span class="keyword">field</span>: ConcreteSubtype = concreteSubtypeValue()  <span class="comment">// explicit</span></code></pre>
+
+  <h3>The subtype rule</h3>
+  <pre><code><span class="comment">// ✓</span>
+<span class="keyword">val</span> items: List&lt;String&gt;
+<span class="keyword">field</span> = mutableListOf&lt;String&gt;()          <span class="comment">// MutableList ⊆ List</span>
+
+<span class="comment">// ✓</span>
+<span class="keyword">val</span> count: StateFlow&lt;Int&gt;
+<span class="keyword">field</span> = MutableStateFlow(0)              <span class="comment">// MutableStateFlow ⊆ StateFlow</span></code></pre>
+
+  <h3>Eligibility — property must be</h3>
+  <ul style="font-family:var(--font-ui); font-size:0.85rem; line-height:2;">
+    <li>✓ <code>val</code></li>
+    <li>✓ No custom getter</li>
+    <li>✓ Not <code>open</code></li>
+    <li>✓ Not delegated (<code>by …</code>)</li>
+    <li>✓ Not <code>const</code></li>
+  </ul>
+
+  <h3>Canonical real-world use</h3>
+  <pre><code><span class="comment">// Before 2.4</span>
+<span class="keyword">private val</span> _count = MutableStateFlow(0)
+<span class="keyword">val</span> count: StateFlow&lt;Int&gt; = _count.asStateFlow()
+
+<span class="comment">// Kotlin 2.4</span>
+<span class="keyword">val</span> count: StateFlow&lt;Int&gt;
+<span class="keyword">field</span> = MutableStateFlow(0)</code></pre>
+
+  <h3>Inside vs. outside the class</h3>
+  <table style="width:100%; font-size:0.82rem; font-family:var(--font-ui); border-collapse:collapse;">
+    <tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Location</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Visible type</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;">Inside the class</td>
+      <td style="padding:0.3rem 0.5rem;">Concrete backing field type (e.g. <code>MutableList</code>)</td>
+    </tr>
+    <tr>
+      <td style="padding:0.3rem 0.5rem;">Outside the class</td>
+      <td style="padding:0.3rem 0.5rem;">Declared property type (e.g. <code>List</code>)</td>
+    </tr>
+  </table>
+</div>
+</body>
+</html>

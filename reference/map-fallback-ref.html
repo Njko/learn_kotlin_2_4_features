@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference — Map Fallback Functions</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    body { font-size: 15px; }
+    pre  { font-size: 0.78rem; }
+    h1   { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Map Fallback Functions — Quick Reference</h1>
+  <div class="lesson-meta">
+    <span class="tag" style="background:#fff8e8; color:#b07000;">Experimental · Kotlin 2.4</span>
+    <span><a href="../lessons/0004-map-fallback-functions.html">← Lesson 4</a></span>
+  </div>
+
+  <h3>Opt-in</h3>
+  <pre><code><span class="keyword">@OptIn</span>(ExperimentalStdlibApi::<span class="keyword">class</span>)</code></pre>
+
+  <h3>Decision table — Map&lt;K, V?&gt;</h3>
+  <table style="width:100%; font-size:0.8rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1rem;">
+    <tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Function</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Key absent</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Key present, value null</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Stores?</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>getOrElseIfNull</code></td>
+      <td style="padding:0.3rem 0.5rem;">fallback</td>
+      <td style="padding:0.3rem 0.5rem;">fallback</td>
+      <td style="padding:0.3rem 0.5rem;">No</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>getOrPutIfNull</code></td>
+      <td style="padding:0.3rem 0.5rem;">fallback + store</td>
+      <td style="padding:0.3rem 0.5rem;">fallback + store</td>
+      <td style="padding:0.3rem 0.5rem;">Yes</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>getOrElseIfMissing</code></td>
+      <td style="padding:0.3rem 0.5rem;">fallback</td>
+      <td style="padding:0.3rem 0.5rem;"><em>null (kept)</em></td>
+      <td style="padding:0.3rem 0.5rem;">No</td>
+    </tr>
+    <tr>
+      <td style="padding:0.3rem 0.5rem;"><code>getOrPutIfMissing</code></td>
+      <td style="padding:0.3rem 0.5rem;">fallback + store</td>
+      <td style="padding:0.3rem 0.5rem;"><em>null (kept)</em></td>
+      <td style="padding:0.3rem 0.5rem;">Yes</td>
+    </tr>
+  </table>
+
+  <h3>Null-aware cache pattern</h3>
+  <pre><code><span class="keyword">val</span> cache = mutableMapOf&lt;String, Result?&gt;()
+
+<span class="keyword">fun</span> <span class="type">get</span>(key: String): Result? =
+    cache.getOrPutIfMissing(key) { expensiveQuery(key) }</code></pre>
+
+  <h3>isSorted — stable, no opt-in</h3>
+  <pre><code>list.isSorted()
+list.isSortedDescending()
+list.isSortedBy { it.field }
+list.isSortedByDescending { it.field }
+list.isSortedWith(comparator)</code></pre>
+</div>
+</body>
+</html>

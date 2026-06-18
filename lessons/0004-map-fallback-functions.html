@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 4 — Map Fallback Functions</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <h1>Map Fallback Functions</h1>
+  <div class="lesson-meta">
+    <span>Lesson 4 of ?</span>
+    <span class="tag" style="background:#fff8e8; color:#b07000;">Experimental in 2.4</span>
+    <span>~12 min</span>
+    <span><a href="../reference/map-fallback-ref.html">Reference sheet →</a></span>
+  </div>
+
+  <!-- ── The ambiguity ──────────────────────────────── -->
+  <h2>The ambiguity in nullable-value maps</h2>
+
+  <p>A <code>Map&lt;K, V?&gt;</code> — a map whose values can be <code>null</code> — has an invisible trap. When you look up a key and get <code>null</code> back, you don't know which of two very different things happened:</p>
+
+  <pre><code><span class="keyword">val</span> cache = mutableMapOf&lt;String, String?&gt;(<span class="string">"userId"</span> to <span class="keyword">null</span>)
+
+<span class="keyword">val</span> result = cache[<span class="string">"userId"</span>]    <span class="comment">// null — but WHY?</span>
+                                  <span class="comment">// A: key present, value is null</span>
+                                  <span class="comment">// B: key absent entirely</span></code></pre>
+
+  <p>For many use cases this doesn't matter. But one case where it matters a great deal: <strong>caching nullable results</strong>. If your cache returns <code>null</code> and you can't tell whether that's "we already looked this up and it doesn't exist" or "we've never looked this up," you'll re-query the source on every call.</p>
+
+  <!-- ── What getOrElse does today ─────────────────── -->
+  <h2>What the existing functions do</h2>
+
+  <p><code>getOrElse</code> and <code>getOrPut</code> treat <code>null</code> and absence the same way — both trigger the fallback:</p>
+
+  <pre><code><span class="keyword">val</span> map = mutableMapOf&lt;String, String?&gt;(<span class="string">"key"</span> to <span class="keyword">null</span>)
+
+map.getOrElse(<span class="string">"key"</span>) { <span class="string">"fallback"</span> }   <span class="comment">// "fallback" — null triggers it</span>
+map.getOrElse(<span class="string">"other"</span>) { <span class="string">"fallback"</span> } <span class="comment">// "fallback" — absence triggers it</span>
+<span class="comment">// no way to tell these two cases apart</span></code></pre>
+
+  <p>For a cache this is broken: every lookup of a stored-null result will re-run the expensive query.</p>
+
+  <!-- ── The four new functions ─────────────────────── -->
+  <h2>The four new functions</h2>
+
+  <p>Kotlin 2.4 adds two families, each with a <code>get</code> (read-only) and <code>put</code> (read-and-store) variant:</p>
+
+  <table style="width:100%; font-size:0.85rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1.2rem;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Function</th>
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Triggers fallback when…</th>
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Stores result?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>getOrElseIfNull</code></td>
+        <td style="padding:0.4rem 0.6rem;">key absent <em>or</em> value is null</td>
+        <td style="padding:0.4rem 0.6rem;">No</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>getOrPutIfNull</code></td>
+        <td style="padding:0.4rem 0.6rem;">key absent <em>or</em> value is null</td>
+        <td style="padding:0.4rem 0.6rem;">Yes</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>getOrElseIfMissing</code></td>
+        <td style="padding:0.4rem 0.6rem;">key absent <em>only</em></td>
+        <td style="padding:0.4rem 0.6rem;">No</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem 0.6rem;"><code>getOrPutIfMissing</code></td>
+        <td style="padding:0.4rem 0.6rem;">key absent <em>only</em></td>
+        <td style="padding:0.4rem 0.6rem;">Yes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>The <code>IfNull</code> family matches the existing <code>getOrElse</code>/<code>getOrPut</code> semantics — it just names the intent explicitly. The <code>IfMissing</code> family is the new semantic: a stored <code>null</code> is a legitimate value, not a miss.</p>
+
+  <!-- ── Side-by-side ───────────────────────────────── -->
+  <h2>Seeing the difference</h2>
+
+  <pre><code><span class="keyword">@OptIn</span>(ExperimentalStdlibApi::<span class="keyword">class</span>)
+<span class="keyword">fun</span> main() {
+    <span class="keyword">val</span> m1 = mutableMapOf&lt;String, String?&gt;(<span class="string">"key"</span> to <span class="keyword">null</span>)
+    <span class="keyword">val</span> m2 = mutableMapOf&lt;String, String?&gt;(<span class="string">"key"</span> to <span class="keyword">null</span>)
+
+    <span class="comment">// IfNull: null value counts as "missing" — replace it</span>
+    m1.getOrPutIfNull(<span class="string">"key"</span>) { <span class="string">"replaced"</span> }
+    println(m1)  <span class="comment">// {key=replaced}</span>
+
+    <span class="comment">// IfMissing: key exists, so null is kept as-is</span>
+    m2.getOrPutIfMissing(<span class="string">"key"</span>) { <span class="string">"replaced"</span> }
+    println(m2)  <span class="comment">// {key=null}</span>
+}</code></pre>
+
+  <div class="callout experimental">
+    <strong>Experimental — requires opt-in</strong>
+    Annotate the call site or enclosing function with <code>@OptIn(ExperimentalStdlibApi::class)</code>. No compiler flag needed.
+  </div>
+
+  <!-- ── Caching pattern ────────────────────────────── -->
+  <h2>The canonical use case: a null-aware cache</h2>
+
+  <p>The motivating scenario: you query a service that can legitimately return <code>null</code> (user not found, feature disabled, etc.). You want to cache both non-null results <em>and</em> the fact that a lookup returned nothing — so you don't hammer the service on every call.</p>
+
+  <pre><code><span class="keyword">class</span> <span class="type">UserService</span> {
+    <span class="keyword">var</span> queryCount = 0
+    <span class="keyword">fun</span> <span class="type">find</span>(id: String): User? {
+        queryCount++
+        <span class="keyword">return null</span>  <span class="comment">// imagine a real DB call that returns null</span>
+    }
+}
+
+<span class="keyword">@OptIn</span>(ExperimentalStdlibApi::<span class="keyword">class</span>)
+<span class="keyword">fun</span> main() {
+    <span class="keyword">val</span> service = UserService()
+    <span class="keyword">val</span> cache   = mutableMapOf&lt;String, User?&gt;()
+
+    <span class="keyword">fun</span> <span class="type">getUser</span>(id: String): User? =
+        cache.getOrPutIfMissing(id) { service.find(id) }
+
+    getUser(<span class="string">"abc"</span>)              <span class="comment">// cache miss → queries service → stores null</span>
+    println(cache)              <span class="comment">// {abc=null}</span>
+
+    getUser(<span class="string">"abc"</span>)              <span class="comment">// cache hit (null) → does NOT query again</span>
+    println(service.queryCount) <span class="comment">// 1  ← only one real query</span>
+}</code></pre>
+
+  <p>With the old <code>getOrPut</code>, <code>queryCount</code> would be 2 — the second call sees <code>null</code> and re-runs the lambda. <code>getOrPutIfMissing</code> distinguishes "stored null" from "absent" and skips the lambda.</p>
+
+  <!-- ── Also: isSorted ─────────────────────────────── -->
+  <h2>Also new: <code>isSorted</code> and friends</h2>
+
+  <p>Five new stable extension functions for checking sort order on any <code>Iterable</code>, <code>Array</code>, or <code>Sequence</code>:</p>
+
+  <pre><code><span class="keyword">val</span> numbers = listOf(1, 2, 3, 4)
+numbers.isSorted()               <span class="comment">// true</span>
+numbers.isSortedDescending()     <span class="comment">// false</span>
+
+<span class="keyword">data class</span> <span class="type">User</span>(<span class="keyword">val</span> name: String, <span class="keyword">val</span> age: Int)
+
+<span class="keyword">val</span> users = listOf(User(<span class="string">"Alice"</span>, 24), User(<span class="string">"Bob"</span>, 31), User(<span class="string">"Charlie"</span>, 29))
+users.isSortedBy(User::age)           <span class="comment">// false — 31 before 29</span>
+users.isSortedByDescending(User::age) <span class="comment">// false</span>
+users.isSortedWith(compareBy { it.name }) <span class="comment">// true — alphabetical</span></code></pre>
+
+  <p>Short-circuits immediately on the first out-of-order pair — efficient for large inputs. Returns <code>true</code> for collections with fewer than two elements.</p>
+
+  <div class="callout stable">
+    <strong>Stable — no opt-in needed</strong>
+    All five <code>isSorted*</code> functions are fully stable in 2.4.
+  </div>
+
+  <!-- ── Quiz ───────────────────────────────────────── -->
+  <div class="quiz">
+    <h2>Check your understanding</h2>
+
+    <div class="question">
+      <p>1. A map contains <code>"token" to null</code>. You call <code>getOrPutIfMissing("token") { "new" }</code>. What does the map contain afterwards?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. IfMissing only triggers when the key is absent. The key 'token' exists — its null value is kept as-is. The lambda never runs.">
+          <code>{token=null}</code> — key exists, lambda not called
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="That would be the result of getOrPutIfNull, not IfMissing. IfMissing treats a stored null as a legitimate value and leaves it alone.">
+          <code>{token=new}</code> — null is treated as a miss
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="The key was already in the map. IfMissing does not remove keys — it leaves the entry unchanged when the key is present.">
+          <code>{}</code> — the null entry is removed
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="No exception is thrown. getOrPutIfMissing handles nullable-value maps cleanly — that's its purpose.">
+          NullPointerException at runtime
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>2. You want a cache where querying a key that returns <code>null</code> is stored so the source is never queried again for that key. Which function should you use?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="getOrPut treats a stored null the same as absence — the lambda re-runs every time the cached value is null. Exactly the bug you're trying to avoid.">
+          <code>getOrPut</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="getOrPutIfNull also treats null as a miss, just with a more explicit name. Same problem — it will re-query when the stored value is null.">
+          <code>getOrPutIfNull</code>
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. getOrPutIfMissing only runs the lambda when the key is absent — a stored null is respected as a cached result and the lambda is skipped.">
+          <code>getOrPutIfMissing</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="getOrElseIfMissing does distinguish absence from null, but it's the read-only variant — it won't store the result, so you'd query the source on every call.">
+          <code>getOrElseIfMissing</code>
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>3. <code>listOf(3, 1, 2).isSorted()</code> returns what?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="isSorted checks ascending order. 3 appears before 1, so the list is not sorted — the function returns false.">
+          <code>true</code>
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. 3 > 1, so the first comparison fails and isSorted returns false immediately (short-circuits).">
+          <code>false</code>
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="quiz-score"></div>
+  </div>
+
+  <!-- ── Primary source ─────────────────────────────── -->
+  <h2>Go deeper</h2>
+
+  <p><strong>Primary source:</strong> <a href="https://kotlinlang.org/docs/whatsnew24.html#new-map-fallback-functions" target="_blank">What's new in Kotlin 2.4 — New Map Fallback Functions ↗</a>. Includes the full caching example and the YouTrack issue for feedback.</p>
+
+  <div class="ask-prompt">
+    💬 <strong>Ask your teacher anything.</strong> Wondering how this compares to Java's <code>computeIfAbsent</code>? Want to see the thread-safety caveats? Just ask.
+  </div>
+
+  <!-- ── Navigation ─────────────────────────────────── -->
+  <div class="nav">
+    <a href="0003-collection-literals.html">← Lesson 3: Collection Literals</a>
+    <span style="margin-left:auto; color:var(--muted); font-size:0.8rem; align-self:center;">Up next: Swift Export Alpha →</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

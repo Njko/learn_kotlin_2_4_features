@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference — Collection Literals</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    body { font-size: 15px; }
+    pre  { font-size: 0.78rem; }
+    h1   { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Collection Literals — Quick Reference</h1>
+  <div class="lesson-meta">
+    <span class="tag" style="background:#fff8e8; color:#b07000;">Experimental · Kotlin 2.4</span>
+    <span><a href="../lessons/0003-collection-literals.html">← Lesson 3</a></span>
+  </div>
+
+  <h3>Enable</h3>
+  <pre><code><span class="comment">// build.gradle.kts</span>
+freeCompilerArgs.add(<span class="string">"-Xcollection-literals"</span>)</code></pre>
+
+  <h3>Type inference table</h3>
+  <table style="width:100%; font-size:0.82rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1rem;">
+    <tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Expected type</th>
+      <th style="text-align:left;padding:0.3rem 0.5rem;">Desugars to</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>List&lt;T&gt;</code> / no annotation</td>
+      <td style="padding:0.3rem 0.5rem;"><code>listOf(…)</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>MutableList&lt;T&gt;</code></td>
+      <td style="padding:0.3rem 0.5rem;"><code>mutableListOf(…)</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>Set&lt;T&gt;</code></td>
+      <td style="padding:0.3rem 0.5rem;"><code>setOf(…)</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;"><code>MutableSet&lt;T&gt;</code></td>
+      <td style="padding:0.3rem 0.5rem;"><code>mutableSetOf(…)</code></td>
+    </tr>
+    <tr>
+      <td style="padding:0.3rem 0.5rem;">Custom with <code>operator fun of</code></td>
+      <td style="padding:0.3rem 0.5rem;"><code>CustomType.of(…)</code></td>
+    </tr>
+  </table>
+
+  <h3>Custom type hook</h3>
+  <pre><code><span class="keyword">class</span> <span class="type">MyCollection</span>(...) {
+    <span class="keyword">companion object</span> {
+        <span class="keyword">operator fun of</span>(<span class="keyword">vararg</span> items: T) = MyCollection(...)
+    }
+}
+<span class="keyword">val</span> x: MyCollection = [item1, item2]  <span class="comment">// → MyCollection.of(item1, item2)</span></code></pre>
+
+  <h3>Limits</h3>
+  <ul style="font-family:var(--font-ui); font-size:0.85rem; line-height:1.9;">
+    <li>No map literals — use <code>mapOf("k" to v)</code></li>
+    <li>Cannot construct Java collection types</li>
+    <li>Experimental — syntax may change</li>
+  </ul>
+</div>
+</body>
+</html>

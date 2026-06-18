@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 1 — Context Parameters</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <h1>Context Parameters</h1>
+  <div class="lesson-meta">
+    <span>Lesson 1 of ?</span>
+    <span class="tag">Stable in 2.4</span>
+    <span>~15 min</span>
+    <span><a href="../reference/context-parameters-ref.html">Reference sheet →</a></span>
+  </div>
+
+  <!-- ── The problem ─────────────────────────────────── -->
+  <h2>The problem they solve</h2>
+
+  <p>You have a function that needs some ambient object — a logger, a transaction scope, a locale — but it isn't the function's <em>real</em> argument. Passing it explicitly at every call site is noise:</p>
+
+  <pre><code><span class="comment">// Every call must thread `logger` through manually</span>
+<span class="keyword">fun</span> <span class="type">processOrder</span>(order: Order, logger: Logger) {
+    validateOrder(order, logger)
+    chargePayment(order, logger)
+    sendReceipt(order, logger)
+}</code></pre>
+
+  <p>Before 2.4, the common workarounds were extension functions on the context type (<code>Logger.processOrder()</code>), or reaching for a <code>ThreadLocal</code>. Both are awkward: extensions pollute the type, and thread-locals are invisible.</p>
+
+  <p>Context Parameters are the language-level answer.</p>
+
+  <!-- ── Syntax ──────────────────────────────────────── -->
+  <h2>Syntax</h2>
+
+  <p>Declare a context parameter with <code>context(name: Type)</code> before the function signature:</p>
+
+  <pre><code><span class="annot">context</span>(logger: Logger)
+<span class="keyword">fun</span> <span class="type">processOrder</span>(order: Order) {
+    logger.info(<span class="string">"Processing ${order.id}"</span>)  <span class="comment">// `logger` is in scope</span>
+    validateOrder(order)
+    chargePayment(order)
+}</code></pre>
+
+  <p>To call a function with a context parameter, the required type must be <em>in scope</em> at the call site. You provide it once, and every function in that scope that needs it picks it up automatically:</p>
+
+  <pre><code><span class="keyword">fun</span> main() {
+    <span class="keyword">val</span> logger = ConsoleLogger()
+
+    <span class="annot">with</span>(logger) {           <span class="comment">// puts `logger: Logger` in scope</span>
+        processOrder(myOrder)  <span class="comment">// no explicit logger argument needed</span>
+    }
+}</code></pre>
+
+  <div class="callout stable">
+    <strong>Stable in Kotlin 2.4</strong>
+    Context Parameters are fully stable. No compiler flag needed. The one sub-feature still experimental is <em>explicit context arguments</em> (passing context at call site by name) — that needs <code>-Xexplicit-context-arguments</code>.
+  </div>
+
+  <!-- ── Multiple contexts ───────────────────────────── -->
+  <h2>Multiple context parameters</h2>
+
+  <p>Declare several in one block:</p>
+
+  <pre><code><span class="annot">context</span>(logger: Logger, db: Database)
+<span class="keyword">fun</span> <span class="type">saveUser</span>(user: User) {
+    logger.debug(<span class="string">"Saving user ${user.id}"</span>)
+    db.insert(user)
+}</code></pre>
+
+  <p>All required types must be in scope simultaneously. This composes naturally:</p>
+
+  <pre><code><span class="annot">context</span>(logger: Logger, db: Database)
+<span class="keyword">fun</span> <span class="type">createAndSaveUser</span>(name: String) {
+    <span class="keyword">val</span> user = User(name)
+    saveUser(user)  <span class="comment">// both logger and db are already in scope</span>
+}</code></pre>
+
+  <!-- ── On classes and properties ──────────────────── -->
+  <h2>Context on classes and properties</h2>
+
+  <p>Context parameters work on class declarations and properties too:</p>
+
+  <pre><code><span class="annot">context</span>(scope: CoroutineScope)
+<span class="keyword">class</span> <span class="type">BackgroundSync</span>(val interval: Duration) {
+    <span class="keyword">fun</span> <span class="type">start</span>() {
+        scope.launch { <span class="comment">/* ... */</span> }
+    }
+}
+
+<span class="comment">// Instantiate only where CoroutineScope is in scope</span>
+<span class="annot">context</span>(scope: CoroutineScope)
+<span class="keyword">val</span> sync = BackgroundSync(5.minutes)</code></pre>
+
+  <!-- ── Explicit context arguments (experimental) ──── -->
+  <h2>Explicit context arguments <small style="font-size:0.7em; color: var(--muted);">(experimental)</small></h2>
+
+  <p>Sometimes you have two overloads that differ <em>only</em> by context type, and both are in scope — an ambiguity. The new explicit syntax lets you name the context you want:</p>
+
+  <pre><code><span class="annot">context</span>(sender: EmailSender)
+<span class="keyword">fun</span> <span class="type">sendNotification</span>() { <span class="comment">/* ... */</span> }
+
+<span class="annot">context</span>(sender: SmsSender)
+<span class="keyword">fun</span> <span class="type">sendNotification</span>() { <span class="comment">/* ... */</span> }
+
+<span class="annot">context</span>(email: EmailSender, sms: SmsSender)
+<span class="keyword">fun</span> <span class="type">notifyUser</span>() {
+    sendNotification(<span class="annot">emailSender</span> = email)  <span class="comment">// explicit — no ambiguity</span>
+    sendNotification(<span class="annot">smsSender</span>  = sms)
+}</code></pre>
+
+  <div class="callout experimental">
+    <strong>Experimental</strong>
+    Requires <code>-Xexplicit-context-arguments</code> and the <code>@OptIn(ExperimentalContextParameters::class)</code> annotation. Not for production yet.
+  </div>
+
+  <!-- ── vs extension functions ─────────────────────── -->
+  <h2>Context parameters vs. extension functions</h2>
+
+  <p>The key difference: extension functions make the type the <em>receiver</em>, which implies an ownership relationship. Context parameters make it an <em>ambient dependency</em> — the function uses it but doesn't belong to it.</p>
+
+  <table style="width:100%; font-size:0.85rem; font-family: var(--font-ui); border-collapse: collapse; margin-bottom:1.2rem;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Extension function</th>
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Context parameter</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>Logger.processOrder()</code></td>
+        <td style="padding:0.4rem 0.6rem;"><code>context(l: Logger) fun processOrder()</code></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">Reads as "order processing is part of Logger"</td>
+        <td style="padding:0.4rem 0.6rem;">Reads as "Logger is needed to process an order"</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">Pollutes <code>Logger</code>'s API surface</td>
+        <td style="padding:0.4rem 0.6rem;">Keeps <code>Logger</code> clean</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem 0.6rem;">Single receiver</td>
+        <td style="padding:0.4rem 0.6rem;">Multiple contexts supported</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── Quiz ───────────────────────────────────────── -->
+  <div class="quiz">
+    <h2>Check your understanding</h2>
+
+    <div class="question">
+      <p>1. In Kotlin 2.4, context parameters require a compiler flag to use.</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="Context parameters are fully stable in 2.4 — no flag needed. (Explicit context *arguments* still need -Xexplicit-context-arguments.)">
+          True — they still need <code>-Xcontext-receivers</code>
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. Context parameters are Stable in 2.4. Only the sub-feature of explicit context arguments is still experimental and needs a flag.">
+          False — the core feature is Stable with no flag
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>2. Which of these is the correct syntax for a context parameter?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="That is an extension function — the Logger becomes the receiver. Context parameters use the `context(...)` keyword before `fun`.">
+          <code>fun Logger.processOrder(order: Order)</code>
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. `context(logger: Logger)` before `fun` is the Kotlin 2.4 context parameter syntax.">
+          <code>context(logger: Logger) fun processOrder(order: Order)</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="That is Kotlin's `with` call — a standard library function, not a context parameter declaration.">
+          <code>fun processOrder(order: Order) = with(logger) { ... }</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="That's Scala syntax, not Kotlin. Kotlin uses `context(name: Type)`.">
+          <code>fun processOrder(order: Order)(using logger: Logger)</code>
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>3. What makes a context parameter available at a call site?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="Imports make types available, not values of those types. Context parameters are value-level — you need an instance in scope.">
+          Importing the required type
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="You don't pass context parameters as regular arguments — that would defeat the purpose. They are implicit, resolved from scope.">
+          Passing it as an explicit argument in every call
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. An instance of the required type must be in scope — e.g. via `with(logger) { ... }` or because you're inside a context(logger: Logger) function yourself.">
+          Having an instance of the required type in scope
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="Annotation processors don't inject context parameters at runtime. Resolution happens at compile time from the lexical scope.">
+          Annotating the function with @Context
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="quiz-score"></div>
+  </div>
+
+  <!-- ── Primary source ─────────────────────────────── -->
+  <h2>Go deeper</h2>
+
+  <p><strong>Primary source:</strong> <a href="https://kotlinlang.org/docs/whatsnew24.html#context-parameters" target="_blank">What's new in Kotlin 2.4 — Context Parameters ↗</a>. Read the examples under "Stable features" — they cover the named-context-parameter syntax and a real DSL use-case.</p>
+
+  <p>If you want the full design rationale (why not just use extension functions? how does this relate to Scala's <code>given</code>?), the <a href="https://github.com/Kotlin/KEEP/blob/master/proposals/context-parameters.md" target="_blank">KEEP-367 proposal ↗</a> is excellent.</p>
+
+  <div class="ask-prompt">
+    💬 <strong>Ask your teacher anything.</strong> Unclear on when to prefer context parameters over extension functions? Want to see a more complex real-world example? Just ask in the chat.
+  </div>
+
+  <!-- ── Navigation ─────────────────────────────────── -->
+  <div class="nav">
+    <span style="margin-left:auto; color:var(--muted); font-size:0.8rem; align-self:center;">Up next: Explicit Backing Fields →</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

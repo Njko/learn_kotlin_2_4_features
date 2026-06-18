@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 3 — Collection Literals</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <h1>Collection Literals</h1>
+  <div class="lesson-meta">
+    <span>Lesson 3 of ?</span>
+    <span class="tag" style="background:#fff8e8; color:#b07000;">Experimental in 2.4</span>
+    <span>~12 min</span>
+    <span><a href="../reference/collection-literals-ref.html">Reference sheet →</a></span>
+  </div>
+
+  <!-- ── Motivation ─────────────────────────────────── -->
+  <h2>The noise in collection construction</h2>
+
+  <p>Creating a collection in Kotlin has always meant calling a factory function:</p>
+
+  <pre><code><span class="keyword">val</span> primes    = listOf(2, 3, 5, 7, 11)
+<span class="keyword">val</span> flags     = mutableSetOf(<span class="string">"debug"</span>, <span class="string">"verbose"</span>)
+<span class="keyword">val</span> env       = mapOf(<span class="string">"HOST"</span> to <span class="string">"localhost"</span>, <span class="string">"PORT"</span> to <span class="string">"8080"</span>)
+<span class="keyword">val</span> matrix    = listOf(listOf(1, 0), listOf(0, 1))</code></pre>
+
+  <p>The factory names are pure ceremony — the <em>content</em> is what matters. Collection literals let the brackets do that work.</p>
+
+  <!-- ── Basic syntax ───────────────────────────────── -->
+  <h2>Bracket syntax</h2>
+
+  <pre><code><span class="keyword">val</span> primes: List&lt;Int&gt;        = [2, 3, 5, 7, 11]
+<span class="keyword">val</span> flags:  MutableSet&lt;String&gt; = [<span class="string">"debug"</span>, <span class="string">"verbose"</span>]</code></pre>
+
+  <p>This is <strong>purely syntactic sugar</strong>. The compiler rewrites <code>[…]</code> into the appropriate factory call based on the <em>expected type</em>. No new runtime types, no new performance characteristics.</p>
+
+  <div class="callout experimental">
+    <strong>Experimental — requires a compiler flag</strong>
+    Add <code>-Xcollection-literals</code> to your compiler options. Not recommended for production code yet — syntax and semantics may still change before stabilisation.
+  </div>
+
+  <!-- ── Type inference ─────────────────────────────── -->
+  <h2>What type do you get?</h2>
+
+  <p>The expected type from the annotation drives everything. When there is no annotation, the compiler defaults to <code>List</code>:</p>
+
+  <pre><code><span class="keyword">val</span> a: MutableList&lt;String&gt; = [<span class="string">"x"</span>]  <span class="comment">// → mutableListOf("x")</span>
+<span class="keyword">val</span> b: Set&lt;String&gt;         = [<span class="string">"x"</span>]  <span class="comment">// → setOf("x")</span>
+<span class="keyword">val</span> c: MutableSet&lt;String&gt;  = [<span class="string">"x"</span>]  <span class="comment">// → mutableSetOf("x")</span>
+<span class="keyword">val</span> d                      = [<span class="string">"x"</span>]  <span class="comment">// → listOf("x")  (default)</span></code></pre>
+
+  <p>The mapping the compiler uses:</p>
+
+  <table style="width:100%; font-size:0.85rem; font-family:var(--font-ui); border-collapse:collapse; margin-bottom:1.2rem;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Expected type</th>
+        <th style="text-align:left; padding:0.4rem 0.6rem;">Desugars to</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>List&lt;T&gt;</code> or no annotation</td>
+        <td style="padding:0.4rem 0.6rem;"><code>listOf(…)</code></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>MutableList&lt;T&gt;</code></td>
+        <td style="padding:0.4rem 0.6rem;"><code>mutableListOf(…)</code></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>Set&lt;T&gt;</code></td>
+        <td style="padding:0.4rem 0.6rem;"><code>setOf(…)</code></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;"><code>MutableSet&lt;T&gt;</code></td>
+        <td style="padding:0.4rem 0.6rem;"><code>mutableSetOf(…)</code></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.4rem 0.6rem;">Custom type with <code>operator fun of</code></td>
+        <td style="padding:0.4rem 0.6rem;"><code>CustomType.of(…)</code></td>
+      </tr>
+      <tr style="color: var(--muted);">
+        <td style="padding:0.4rem 0.6rem;"><code>Map&lt;K, V&gt;</code> / <code>MutableMap&lt;K, V&gt;</code></td>
+        <td style="padding:0.4rem 0.6rem;">✗ not supported — use <code>mapOf(…)</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── Maps ──────────────────────────────────────────── -->
+  <h2>Maps and collection literals</h2>
+
+  <h3>Why <code>[…]</code> doesn't work for maps</h3>
+
+  <p>The <code>operator fun of(vararg elements: T)</code> hook takes a single element type. A map needs two — a key and a value. There's no clean way to express that with <code>[…]</code>, so <code>Map</code> and <code>MutableMap</code> are intentionally excluded. The standard idiom is unchanged:</p>
+
+  <pre><code><span class="keyword">val</span> env: Map&lt;String, String&gt; = [<span class="string">"HOST"</span> to <span class="string">"localhost"</span>]   <span class="comment">// ✗ compile error</span>
+
+<span class="keyword">val</span> env = mapOf(<span class="string">"HOST"</span> to <span class="string">"localhost"</span>, <span class="string">"PORT"</span> to <span class="string">"8080"</span>)    <span class="comment">// ✓ still the way</span></code></pre>
+
+  <h3>Lists of Pairs — what does compile</h3>
+
+  <p>A <code>List&lt;Pair&lt;K, V&gt;&gt;</code> is not a map, but it uses the same <code>to</code> infix syntax and <em>does</em> work with brackets. This is useful when you need an ordered sequence of key-value pairs, or want to call <code>.toMap()</code> lazily:</p>
+
+  <pre><code><span class="keyword">val</span> pairs: List&lt;Pair&lt;String, Int&gt;&gt; = [<span class="string">"a"</span> to 1, <span class="string">"b"</span> to 2, <span class="string">"c"</span> to 3]
+<span class="comment">// desugars to: listOf("a" to 1, "b" to 2, "c" to 3)</span>
+
+<span class="keyword">val</span> lookup = pairs.toMap()   <span class="comment">// Map&lt;String, Int&gt; when you need it</span></code></pre>
+
+  <h3>Lists that contain maps</h3>
+
+  <p>The outer container can be a literal; the inner map still needs <code>mapOf</code>. The two syntaxes compose freely:</p>
+
+  <pre><code><span class="keyword">val</span> records: List&lt;Map&lt;String, Any&gt;&gt; = [
+    mapOf(<span class="string">"name"</span> to <span class="string">"Alice"</span>, <span class="string">"age"</span> to 30),
+    mapOf(<span class="string">"name"</span> to <span class="string">"Bob"</span>,   <span class="string">"age"</span> to 25),
+]
+<span class="comment">// Outer [...] → listOf(…)   Inner mapOf stays as-is</span></code></pre>
+
+  <h3>Custom map-like type via <code>operator fun of</code></h3>
+
+  <p>If you own the type, you can make it work with brackets by accepting <code>vararg</code> pairs. This pattern is useful for domain-specific "bags of named values" that you want to read as a literal:</p>
+
+  <pre><code><span class="keyword">class</span> <span class="type">Config</span>(<span class="keyword">private val</span> entries: Map&lt;String, String&gt;) {
+    <span class="keyword">companion object</span> {
+        <span class="keyword">operator fun of</span>(<span class="keyword">vararg</span> pairs: Pair&lt;String, String&gt;) =
+            Config(mapOf(*pairs))
+    }
+    <span class="keyword">operator fun get</span>(key: String) = entries[key]
+}
+
+<span class="keyword">val</span> cfg: Config = [
+    <span class="string">"host"</span> to <span class="string">"localhost"</span>,
+    <span class="string">"port"</span> to <span class="string">"8080"</span>,
+    <span class="string">"env"</span>  to <span class="string">"dev"</span>,
+]
+
+println(cfg[<span class="string">"port"</span>])  <span class="comment">// 8080</span></code></pre>
+
+  <p>The elements are still <code>Pair</code> values — the <code>to</code> keyword creates them. <code>operator fun of</code> collects them as a <code>vararg</code> and builds the underlying map. The caller gets clean literal syntax; the internals are ordinary Kotlin.</p>
+
+  <!-- ── Custom types ───────────────────────────────── -->
+  <h2>Custom types: <code>operator fun of</code></h2>
+
+  <p>Any type can participate in the literal syntax by declaring a companion object function called <code>of</code> with the <code>operator</code> modifier:</p>
+
+  <pre><code><span class="keyword">class</span> <span class="type">Row</span>(<span class="keyword">vararg val</span> elements: Double) {
+    <span class="keyword">companion object</span> {
+        <span class="keyword">operator fun of</span>(<span class="keyword">vararg</span> elements: Double) = Row(*elements)
+    }
+}
+
+<span class="keyword">class</span> <span class="type">Matrix</span>(<span class="keyword">vararg val</span> rows: Row) {
+    <span class="keyword">companion object</span> {
+        <span class="keyword">operator fun of</span>(<span class="keyword">vararg</span> rows: Row) = Matrix(*rows)
+    }
+}
+
+<span class="comment">// Nested literals: the compiler resolves types recursively</span>
+<span class="keyword">val</span> identity: Matrix = [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+]</code></pre>
+
+  <p>The outer <code>[…]</code> desugars to <code>Matrix.of(…)</code>. The compiler knows each argument must be a <code>Row</code>, so each inner <code>[…]</code> desugars to <code>Row.of(…)</code>. The expected-type cascade handles the nesting automatically.</p>
+
+  <!-- ── Enabling ────────────────────────────────────── -->
+  <h2>Enabling it</h2>
+
+  <pre><code><span class="comment">// build.gradle.kts</span>
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.add(<span class="string">"-Xcollection-literals"</span>)
+    }
+}</code></pre>
+
+  <!-- ── Limitation ─────────────────────────────────── -->
+  <h2>One known limitation</h2>
+
+  <p>Collection literals cannot construct collections defined in Java. <code>java.util.ArrayList</code> or any <code>java.util.*</code> type as the expected type won't work. Use the Kotlin factory functions for those cases.</p>
+
+  <!-- ── Should you use it? ─────────────────────────── -->
+  <h2>Should you use it today?</h2>
+
+  <p>The syntax is appealing, but this is experimental — the design can still change before it stabilises. Two reasonable positions:</p>
+
+  <ul style="font-family:var(--font-ui); font-size:0.9rem; line-height:2;">
+    <li><strong>Production code:</strong> hold off. The flag requirement signals intent — JetBrains hasn't committed to the final form yet.</li>
+    <li><strong>Personal projects / scripts:</strong> fine to try. It's likely to stabilise in roughly this shape, and switching back is a find-and-replace.</li>
+  </ul>
+
+  <!-- ── Quiz ───────────────────────────────────────── -->
+  <div class="quiz">
+    <h2>Check your understanding</h2>
+
+    <div class="question">
+      <p>1. What type does <code>val x = ["a", "b"]</code> infer when there is no type annotation?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="Array is a different type entirely — collection literals produce Kotlin collection types, not arrays.">
+          <code>Array&lt;String&gt;</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="Without an annotation hinting MutableList, the compiler defaults to the immutable List — the conservative choice.">
+          <code>MutableList&lt;String&gt;</code>
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. With no expected type, the compiler defaults to List — the read-only, immutable-interface type.">
+          <code>List&lt;String&gt;</code>
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="There is no such type. Collection literals resolve to concrete Kotlin collection types, not an unresolved placeholder.">
+          Compiler error — type cannot be inferred
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>2. What must a custom class declare to support collection literal syntax?</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="There's no such annotation. Opt-in is handled via the compiler flag, not per-class annotations.">
+          The <code>@CollectionLiteral</code> annotation
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="invoke is the operator for function-call syntax — e.g. `MyClass(args)`. Collection literals use `of`.">
+          An <code>operator fun invoke</code> in a companion object
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. A companion object with `operator fun of(vararg …)` is the hook the compiler calls when it sees `[…]` with that type expected.">
+          An <code>operator fun of</code> in a companion object
+        </button>
+        <button class="option"
+                data-correct="false"
+                data-explanation="Iterable gives you for-loop support, not literal syntax. The two are unrelated.">
+          Implement the <code>Iterable</code> interface
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="question">
+      <p>3. Collection literals in Kotlin 2.4 are available in production code without any configuration.</p>
+      <div class="options">
+        <button class="option"
+                data-correct="false"
+                data-explanation="Correct — this statement is false. The feature is Experimental and requires the -Xcollection-literals compiler flag. It is not on by default.">
+          True
+        </button>
+        <button class="option"
+                data-correct="true"
+                data-explanation="Correct. The feature is Experimental in 2.4 — you must explicitly add -Xcollection-literals to your compiler options, and production use is not yet recommended.">
+          False
+        </button>
+      </div>
+      <div class="feedback"></div>
+    </div>
+
+    <div class="quiz-score"></div>
+  </div>
+
+  <!-- ── Primary source ─────────────────────────────── -->
+  <h2>Go deeper</h2>
+
+  <p><strong>Primary source:</strong> <a href="https://kotlinlang.org/docs/whatsnew24.html#collection-literals" target="_blank">What's new in Kotlin 2.4 — Collection Literals ↗</a>. Covers the full examples including nested custom types.</p>
+
+  <p>The <a href="https://github.com/Kotlin/KEEP/blob/main/proposals/KEEP-0416-collection-literals.md" target="_blank">KEEP-0416 proposal ↗</a> explains the type-inference model in detail and the open design questions that are keeping this experimental.</p>
+
+  <div class="ask-prompt">
+    💬 <strong>Ask your teacher anything.</strong> Curious how <code>operator fun of</code> relates to the existing <code>operator fun invoke</code>? Wondering when this might stabilise? Just ask.
+  </div>
+
+  <!-- ── Navigation ─────────────────────────────────── -->
+  <div class="nav">
+    <a href="0002-explicit-backing-fields.html">← Lesson 2: Explicit Backing Fields</a>
+    <span style="margin-left:auto; color:var(--muted); font-size:0.8rem; align-self:center;">Up next: New Map Fallback Functions →</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
